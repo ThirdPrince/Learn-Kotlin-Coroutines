@@ -6,7 +6,6 @@ import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import me.amitshekhar.learn.kotlin.coroutines.R
 import me.amitshekhar.learn.kotlin.coroutines.ui.basic.BasicActivity
-import me.amitshekhar.learn.kotlin.coroutines.ui.errorhandling.exceptionhandler.ExceptionHandlerActivity
 import me.amitshekhar.learn.kotlin.coroutines.ui.errorhandling.supervisor.IgnoreErrorAndContinueActivity
 import me.amitshekhar.learn.kotlin.coroutines.ui.errorhandling.trycatch.TryCatchActivity
 import me.amitshekhar.learn.kotlin.coroutines.ui.retrofit.parallel.ParallelNetworkCallsActivity
@@ -46,10 +45,6 @@ class MainActivity : AppCompatActivity() {
 
     fun startTryCatchActivity(view: View) {
         startActivity(Intent(this@MainActivity, TryCatchActivity::class.java))
-    }
-
-    fun startExceptionHandlerActivity(view: View) {
-        startActivity(Intent(this@MainActivity, ExceptionHandlerActivity::class.java))
     }
 
     fun startIgnoreErrorAndContinueActivity(view: View) {

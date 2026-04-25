@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import me.amitshekhar.learn.kotlin.coroutines.data.api.ApiHelper
 import me.amitshekhar.learn.kotlin.coroutines.data.local.DatabaseHelper
-import me.amitshekhar.learn.kotlin.coroutines.ui.errorhandling.exceptionhandler.ExceptionHandlerViewModel
 import me.amitshekhar.learn.kotlin.coroutines.ui.errorhandling.supervisor.IgnoreErrorAndContinueViewModel
 import me.amitshekhar.learn.kotlin.coroutines.ui.errorhandling.trycatch.TryCatchViewModel
 import me.amitshekhar.learn.kotlin.coroutines.ui.retrofit.parallel.ParallelNetworkCallsViewModel

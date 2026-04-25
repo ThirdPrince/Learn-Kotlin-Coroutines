@@ -5,7 +5,6 @@ import me.amitshekhar.learn.kotlin.coroutines.data.local.*
 import me.amitshekhar.learn.kotlin.coroutines.data.repository.UserRepositoryImpl
 import me.amitshekhar.learn.kotlin.coroutines.domain.repository.UserRepository
 import me.amitshekhar.learn.kotlin.coroutines.domain.usecase.*
-import me.amitshekhar.learn.kotlin.coroutines.ui.errorhandling.exceptionhandler.ExceptionHandlerViewModel
 import me.amitshekhar.learn.kotlin.coroutines.ui.errorhandling.supervisor.IgnoreErrorAndContinueViewModel
 import me.amitshekhar.learn.kotlin.coroutines.ui.errorhandling.trycatch.TryCatchViewModel
 import me.amitshekhar.learn.kotlin.coroutines.ui.retrofit.parallel.ParallelNetworkCallsViewModel
@@ -48,7 +47,6 @@ val viewModelModule = module {
     viewModel { RoomDBViewModel(get()) }
     viewModel { TimeoutViewModel(get()) }
     viewModel { TryCatchViewModel(get()) }
-    viewModel { ExceptionHandlerViewModel(get()) }
     viewModel { IgnoreErrorAndContinueViewModel(get(), get()) }
     viewModel { LongRunningTaskViewModel() }
     viewModel { TwoLongRunningTasksViewModel() }
