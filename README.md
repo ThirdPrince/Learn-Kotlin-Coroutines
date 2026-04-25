@@ -1,25 +1,46 @@
 # 我是如何把一个传统 Android 协程示例，重构成 Clean Architecture + Koin DI 项目的
 
-很多协程教程项目都有一个共同特点：功能能跑，示例也清楚，但工程结构往往停留在“为了演示而演示”的阶段。
+`Learn-Kotlin-Coroutines` 原本是 Amit Shekhar 的一个 Android 协程教学项目。Amit Shekhar 本身是很有影响力的 Android 讲师，这个项目在大约四年前的语境下，其实是一个质量不错、很适合入门的示例工程。
+
+它的优点很明显：
+
+- 协程场景覆盖比较全
+- 网络请求、数据库、异常处理、超时控制这些主题都有示例
+- 对初学者来说，页面入口直接，学习路径也清楚
+
+如果只站在“协程入门示例”的角度看，这个项目到今天依然有参考价值。
+
+但问题在于，一个适合教学的示例项目，不一定适合继续往真实业务工程演进。把它放到今天的 Android 工程视角下再看，原始结构仍然暴露出不少典型问题。
 
 比如：
 
-- `Activity` 负责组装依赖
+- `Activity` 或 `ViewModelFactory` 负责组装依赖
 - `ViewModel` 直接调用网络层和数据库层
-- 异常处理散落在每个协程块里
+- 状态更新和异常处理都堆在表现层
 - 新增一个页面，就要继续复制一套依赖创建逻辑
+- 数据获取更偏“一次性主动拉取”，不够贴近现在常见的 Flow 响应式写法
 
 这类项目很适合入门，但如果继续往真实业务开发靠，就会很快暴露出结构问题。
 
-我这次做的事情，不是单纯给项目“加一点优化”，而是把这个原本偏传统写法的 Android Kotlin 协程示例，完整地往工程化方向推进了一步：
+所以我这次做的事情，不是否定这个项目原本的教学价值，而是在保留它示例价值的前提下，把这个原本偏传统写法的 Android Kotlin 协程示例，完整地往工程化方向推进了一步。
+
+换句话说，这次优化的出发点是：
+
+- 承认它在当时是一个不错的教学项目
+- 也承认它放到今天仍然存在明显的架构短板
+- 然后在这个基础上，补上它原来缺失的工程能力
+
+具体来说，我做了这些改造：
 
 - 从没有依赖注入，改成 `Koin DI`
 - 从 `ViewModel` 直连数据源，改成 `UseCase + Repository`
 - 从职责混杂的表现层，改成 `UI -> Domain -> Data` 分层
 - 从分散处理异常，改成 `Repository` 统一返回 `Resource`
+- 从主动获取和手动推送 UI 状态，改成 `Flow -> StateFlow` 的响应式数据流
 
 这篇 README 也不再只是项目说明，而是按一次真实重构过程来写清楚：
 
+- 这个项目原本为什么值得学
 - 原来的问题是什么
 - 为什么这些问题值得改
 - 我是怎么一步步改成现在这样的
@@ -30,6 +51,16 @@
 ---
 
 ## 一、先说原来的问题：它能运行，但不适合继续长大
+
+先说明一点：原项目并不是“写得差”，而是它的定位本来就更偏教学示例，而不是工程化模板。
+
+这也是为什么它在四年前看起来完全合理：
+
+- 页面直接展示协程场景，学习成本低
+- ViewModel 直接处理逻辑，代码路径短
+- 示例之间相互独立，方便单点理解
+
+但一旦目标从“演示协程用法”变成“作为一个可继续演进的 Android 项目基础”，问题就会开始放大。
 
 传统协程示例项目最大的问题，不是“代码错了”，而是“结构开始失控了”。
 
@@ -189,24 +220,27 @@ class SingleNetworkCallViewModel(
 
 这其实违背了表现层应有的职责边界。
 
-### 2. 重构后：ViewModel 只依赖 UseCase
+### 2. 重构后：ViewModel 只依赖 UseCase，并直接暴露 StateFlow
 
-现在的 `SingleNetworkCallViewModel` 只依赖业务用例：
+现在的 `SingleNetworkCallViewModel` 只依赖业务用例，而且不再手动维护 `MutableLiveData`，而是直接把 `Flow<Resource<T>>` 转成 `StateFlow<UiState<T>>`：
 
 ```kotlin
 class SingleNetworkCallViewModel(
-    private val getUsersUseCase: GetUsersUseCase
+    getUsersUseCase: GetUsersUseCase
 ) : ViewModel() {
 
-    private fun fetchUsers() {
-        viewModelScope.launch {
-            uiState.postValue(UiState.Loading)
-            when (val result = getUsersUseCase()) {
-                is Resource.Success -> uiState.postValue(UiState.Success(result.data))
-                is Resource.Error -> uiState.postValue(UiState.Error(result.message))
+    val uiState: StateFlow<UiState<List<ApiUser>>> = getUsersUseCase()
+        .map { result ->
+            when (result) {
+                is Resource.Success -> UiState.Success(result.data)
+                is Resource.Error -> UiState.Error(result.message)
             }
         }
-    }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = UiState.Loading
+        )
 }
 ```
 
@@ -215,7 +249,7 @@ class SingleNetworkCallViewModel(
 ```kotlin
 class GetUsersUseCase(private val userRepository: UserRepository) {
 
-    suspend operator fun invoke(): Resource<List<ApiUser>> {
+    operator fun invoke(): Flow<Resource<List<ApiUser>>> {
         return userRepository.getUsers()
     }
 }
@@ -229,6 +263,7 @@ class GetUsersUseCase(private val userRepository: UserRepository) {
 - 业务逻辑有了明确归属
 - 同一类业务流程更容易被复用
 - 表现层开始真正只关心“结果怎么展示”
+- UI 状态天然变成可收集的数据流，而不是手动推送事件
 
 很多人觉得 `UseCase` 是“看起来更高级”的写法，但如果项目已经进入多个页面、多种请求场景并存的状态，它其实是非常务实的拆分。
 
@@ -269,40 +304,56 @@ viewModelScope.launch {
 - ViewModel 职责膨胀
 - UI 层和底层错误强耦合
 
-### 2. 重构后：Repository 统一返回 Resource
+### 2. 重构后：Repository 统一发射 Flow<Resource<T>>
 
-现在异常被统一下沉到 `Repository`：
+现在异常被统一下沉到 `Repository`，并通过 `Flow` 发射结果：
 
 ```kotlin
 class UserRepositoryImpl(
-    private val apiHelper: ApiHelper,
-    private val databaseHelper: DatabaseHelper
+    private val remoteDataSource: UserRemoteDataSource,
+    private val localDataSource: UserLocalDataSource
 ) : UserRepository {
 
-    override suspend fun getUsers(): Resource<List<ApiUser>> {
-        return try {
-            Resource.Success(apiHelper.getUsers())
+    override fun getUsers(): Flow<Resource<List<ApiUser>>> = flow {
+        val localUsers = localDataSource.getUsers()
+        if (localUsers.isNotEmpty()) {
+            emit(Resource.Success(localUsers.map { it.toApiUser() }))
+        }
+
+        try {
+            val remoteUsers = remoteDataSource.getUsers()
+            localDataSource.insertAll(remoteUsers.map { it.toUserEntity() })
+            emit(Resource.Success(remoteUsers))
         } catch (e: Exception) {
-            Resource.Error(e.toString())
+            if (localUsers.isEmpty()) {
+                emit(Resource.Error(e.toString()))
+            }
         }
     }
 }
 ```
 
-然后 `ViewModel` 只根据结果更新界面：
+然后 `ViewModel` 只负责把结果流映射成 UI 状态流：
 
 ```kotlin
-when (val result = getUsersUseCase()) {
-    is Resource.Success -> uiState.postValue(UiState.Success(result.data))
-    is Resource.Error -> uiState.postValue(UiState.Error(result.message))
-}
+val uiState: StateFlow<UiState<List<ApiUser>>> = getUsersUseCase()
+    .map { result ->
+        when (result) {
+            is Resource.Success -> UiState.Success(result.data)
+            is Resource.Error -> UiState.Error(result.message)
+        }
+    }
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UiState.Loading)
 ```
 
 这样做之后，职责边界就清晰了：
 
 - `Repository` 负责和数据源打交道
-- `Repository` 负责把异常转换成统一结果
+- `Repository` 负责把异常转换成统一结果流
 - `ViewModel` 只负责消费结果并驱动 UI
+
+这里还有一个比旧实现更接近真实业务的变化：  
+`getUsers()` 不再只是“请求一次网络然后返回”，而是先发射本地缓存，再尝试请求远程并刷新缓存。这意味着数据流是连续的，而不是一次性的主动获取。
 
 从“防御式写法”转向“结果驱动写法”，是这次重构里我认为非常关键的一步。
 
@@ -330,20 +381,22 @@ when (val result = getUsersUseCase()) {
 ```kotlin
 class GetUsersSeriesUseCase(private val userRepository: UserRepository) {
 
-    suspend operator fun invoke(): Resource<List<ApiUser>> {
-        val usersResult = userRepository.getUsers()
-        if (usersResult is Resource.Error) return usersResult
-
-        val moreUsersResult = userRepository.getMoreUsers()
-        if (moreUsersResult is Resource.Error) return moreUsersResult
-
-        return if (usersResult is Resource.Success && moreUsersResult is Resource.Success) {
-            val allUsers = mutableListOf<ApiUser>()
-            allUsers.addAll(usersResult.data)
-            allUsers.addAll(moreUsersResult.data)
-            Resource.Success(allUsers)
-        } else {
-            Resource.Error("Something Went Wrong")
+    operator fun invoke(): Flow<Resource<List<ApiUser>>> {
+        return userRepository.getUsers().flatMapConcat { usersResult ->
+            if (usersResult is Resource.Success) {
+                userRepository.getMoreUsers().map { moreUsersResult ->
+                    if (moreUsersResult is Resource.Success) {
+                        val allUsers = mutableListOf<ApiUser>()
+                        allUsers.addAll(usersResult.data)
+                        allUsers.addAll(moreUsersResult.data)
+                        Resource.Success(allUsers)
+                    } else {
+                        moreUsersResult as Resource.Error
+                    }
+                }
+            } else {
+                flow { emit(usersResult as Resource.Error) }
+            }
         }
     }
 }
@@ -354,25 +407,24 @@ class GetUsersSeriesUseCase(private val userRepository: UserRepository) {
 ```kotlin
 class GetUsersParallelUseCase(private val userRepository: UserRepository) {
 
-    suspend operator fun invoke(): Resource<List<ApiUser>> = coroutineScope {
-        val usersDeferred = async { userRepository.getUsers() }
-        val moreUsersDeferred = async { userRepository.getMoreUsers() }
-
-        val usersResult = usersDeferred.await()
-        val moreUsersResult = moreUsersDeferred.await()
-
-        if (usersResult is Resource.Success && moreUsersResult is Resource.Success) {
-            val allUsers = mutableListOf<ApiUser>()
-            allUsers.addAll(usersResult.data)
-            allUsers.addAll(moreUsersResult.data)
-            Resource.Success(allUsers)
-        } else {
-            val errorMessage = when {
-                usersResult is Resource.Error -> usersResult.message
-                moreUsersResult is Resource.Error -> moreUsersResult.message
-                else -> "Something Went Wrong"
+    operator fun invoke(): Flow<Resource<List<ApiUser>>> {
+        return combine(
+            userRepository.getUsers(),
+            userRepository.getMoreUsers()
+        ) { usersResult, moreUsersResult ->
+            if (usersResult is Resource.Success && moreUsersResult is Resource.Success) {
+                val allUsers = mutableListOf<ApiUser>()
+                allUsers.addAll(usersResult.data)
+                allUsers.addAll(moreUsersResult.data)
+                Resource.Success(allUsers)
+            } else {
+                val errorMessage = when {
+                    usersResult is Resource.Error -> usersResult.message
+                    moreUsersResult is Resource.Error -> moreUsersResult.message
+                    else -> "Something Went Wrong"
+                }
+                Resource.Error(errorMessage)
             }
-            Resource.Error(errorMessage)
         }
     }
 }
@@ -382,7 +434,7 @@ class GetUsersParallelUseCase(private val userRepository: UserRepository) {
 
 这点很重要。
 
-因为真正好的示例项目，不应该只教会别人“怎么 launch / async”，还应该教会别人“这些协程代码应该写在哪一层”。
+因为真正好的示例项目，不应该只教会别人“怎么 launch / async”，还应该教会别人“这些协程代码应该写在哪一层”，以及“这些结果为什么应该以 Flow 的形式持续流动”。
 
 这也是这次重构最想保留的一点：示例性不变，但工程边界要比原来清楚得多。
 
@@ -433,8 +485,9 @@ app/src/main/java/me/amitshekhar/learn/kotlin/coroutines
 | 维度 | 重构前 | 重构后 |
 | :--- | :--- | :--- |
 | 依赖管理 | 手动 Factory / 页面传递 | `Koin` 统一注入 |
-| ViewModel 职责 | 既调数据源，又管异常和状态 | 只协调 UseCase 与 UI 状态 |
+| ViewModel 职责 | 既调数据源，又管异常和状态 | 只协调 UseCase 与 `StateFlow<UiState>` |
 | 业务逻辑位置 | 散落在 ViewModel | 下沉到 `UseCase` |
+| 数据驱动方式 | 主动拉取、一次性请求 | `Flow` 持续发射，UI 订阅状态 |
 | 异常处理 | 每个页面单独 `try-catch` | `Repository` 统一封装 `Resource` |
 | 工程结构 | 更像示例堆叠 | 更接近真实业务分层 |
 
@@ -449,8 +502,9 @@ app/src/main/java/me/amitshekhar/learn/kotlin/coroutines
 1. 先看 `ui/basic`，理解最基础的协程用法
 2. 再看 `single / series / parallel`，理解不同请求模型
 3. 然后看 `domain/usecase`，理解这些协程逻辑为什么被放在这里
-4. 再看 `data/repository/UserRepositoryImpl.kt`，理解结果封装和异常处理
-5. 最后看 `di/module/AppModule.kt` 和 `CoroutinesApp.kt`，把依赖注入链路串起来
+4. 再看 `data/repository/UserRepositoryImpl.kt`，理解本地缓存、远程刷新和结果封装
+5. 再看各个 Activity 中的 `repeatOnLifecycle + collect`，理解 UI 如何订阅状态流
+6. 最后看 `di/module/AppModule.kt` 和 `CoroutinesApp.kt`，把依赖注入链路串起来
 
 这样你学到的就不只是“协程语法”，而是“协程在 Android 项目里怎么落地”。
 
@@ -483,7 +537,7 @@ app/src/main/java/me/amitshekhar/learn/kotlin/coroutines
 - Kotlin
 - Kotlin Coroutines
 - Android Jetpack ViewModel
-- LiveData
+- Flow / StateFlow / SharedFlow
 - Retrofit
 - Room
 - Koin
@@ -510,7 +564,8 @@ app/src/main/java/me/amitshekhar/learn/kotlin/coroutines
 
 - 把依赖管理从手动组装升级为 `Koin DI`
 - 把业务逻辑从 `ViewModel` 下沉到 `UseCase`
-- 把数据访问和异常封装收敛到 `Repository`
+- 把数据访问、缓存刷新和异常封装收敛到 `Repository`
+- 把 UI 通信模型从主动获取切换为 `Flow -> StateFlow`
 - 把项目从“协程示例集合”推进为“有清晰边界的工程化示例”
 
 如果你也有一个“能跑，但结构开始变重”的 Android 示例项目，这条优化路径是值得参考的。
@@ -521,5 +576,4 @@ app/src/main/java/me/amitshekhar/learn/kotlin/coroutines
 
 - 更完整的单元测试
 - 更统一的错误模型
-- Flow / StateFlow 版本示例
 - README 配套架构图和页面截图
