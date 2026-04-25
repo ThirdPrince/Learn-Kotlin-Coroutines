@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fadeScrollbars="false"
+    android:paddingLeft="16dp"
+    android:paddingTop="16dp"
+    android:paddingRight="16dp"
+    android:paddingBottom="16dp"
+    tools:context=".ui.basic.BasicActivity">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="testCoroutine"
+            android:text="testCoroutine"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="testCoroutineWithMain"
+            android:text="testCoroutineWithMain"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="testCoroutineWithMainImmediate"
+            android:text="testCoroutineWithMainImmediate"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="testCoroutineEverything"
+            android:text="testCoroutineEverything"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="usingGlobalScope"
+            android:text="usingGlobalScope"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="usingMyActivityScope"
+            android:text="usingMyActivityScope"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="globalScopeInsideLifecycleScope"
+            android:text="globalScopeInsideLifecycleScope"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="launchInsideLifecycleScope"
+            android:text="launchInsideLifecycleScope"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="twoLaunches"
+            android:text="twoLaunches"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="twoWithContextInsideLifecycleScope"
+            android:text="twoWithContextInsideLifecycleScope"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="twoAsyncInsideLifecycleScope"
+            android:text="twoAsyncInsideLifecycleScope"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="twoTasks"
+            android:text="twoTasks"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="parentAndChildTaskCancel"
+            android:text="parentAndChildTaskCancel"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="parentAndChildTaskCancelIsActive"
+            android:text="parentAndChildTaskCancelIsActive"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="lifecycleScopeWithHandlerException"
+            android:text="lifecycleScopeWithHandlerException"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="lifecycleScopeWithHandler"
+            android:text="lifecycleScopeWithHandler"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="myActivityScopeWithHandlerException"
+            android:text="myActivityScopeWithHandlerException"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="myActivityScopeWithHandler"
+            android:text="myActivityScopeWithHandler"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="exceptionInLaunchBlock"
+            android:text="exceptionInLaunchBlock"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="exceptionInAsyncBlock"
+            android:text="exceptionInAsyncBlock"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="exceptionInAsyncBlockWithAwait"
+            android:text="exceptionInAsyncBlockWithAwait"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="testSuspending"
+            android:text="testSuspending"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="testBlocking"
+            android:text="testBlocking"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+
+    </LinearLayout>
+</ScrollView>
