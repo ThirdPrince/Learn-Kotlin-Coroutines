@@ -19,8 +19,6 @@ class ParallelNetworkCallsViewModel(
                 is Resource.Error -> UiState.Error(result.message)
             }
         }
-        .onStart { emit(UiState.Loading) }
-        .catch { emit(UiState.Error("Something Went Wrong")) }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),

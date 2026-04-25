@@ -1,5 +1,6 @@
 package me.amitshekhar.learn.kotlin.coroutines.domain.usecase
 
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.flow
@@ -10,6 +11,7 @@ import me.amitshekhar.learn.kotlin.coroutines.domain.repository.UserRepository
 
 class GetUsersSeriesUseCase(private val userRepository: UserRepository) {
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     operator fun invoke(): Flow<Resource<List<ApiUser>>> {
         return userRepository.getUsers().flatMapConcat { usersResult ->
             if (usersResult is Resource.Success) {
