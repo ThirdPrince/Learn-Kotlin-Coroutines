@@ -1,18 +1,44 @@
 # 我是如何把一个传统 Android 协程示例，重构成 Clean Architecture + Koin DI 项目的
 
-`Learn-Kotlin-Coroutines` 原本是 Amit Shekhar 的一个 Android 协程教学项目。Amit Shekhar 本身是很有影响力的 Android 讲师，这个项目在大约四年前的语境下，其实是一个质量不错、很适合入门的示例工程。
+`Learn-Kotlin-Coroutines` 原本是 Amit Shekhar 的一个 Android 协程教学项目。Amit Shekhar 本身是一位优秀的 Android 实战性讲师，这个项目在大约四年前的语境下，其实是一个质量不错、很适合入门的示例工程。
 
-它的优点很明显：
+原项目 GitHub 地址：
+
+- 仓库地址：[amitshekhariitbhu/Learn-Kotlin-Coroutines](https://github.com/amitshekhariitbhu/Learn-Kotlin-Coroutines)
+- 作者主页：[Amit Shekhar](https://github.com/amitshekhariitbhu)
+
+如果只看它原本的教学目标，这个项目的优点很明显。
+
+从结构上看，它更像一个“按场景拆分的协程示例集合”，而不是一个强调工程边界的业务项目。主线大致是：
+
+- `ui/basic`：基础协程示例
+- `ui/retrofit/*`：单次、串行、并行网络请求
+- `ui/room`：本地数据库
+- `ui/errorhandling/*`：异常处理相关示例
+- `ui/task/*`、`ui/timeout`：长任务、超时等协程场景
+
+这种组织方式的优点很直接：
 
 - 协程场景覆盖比较全
 - 网络请求、数据库、异常处理、超时控制这些主题都有示例
 - 对初学者来说，页面入口直接，学习路径也清楚
+- 每个示例基本可以单独理解，阅读门槛低
 
 如果只站在“协程入门示例”的角度看，这个项目到今天依然有参考价值。
 
-但问题在于，一个适合教学的示例项目，不一定适合继续往真实业务工程演进。把它放到今天的 Android 工程视角下再看，原始结构仍然暴露出不少典型问题。
+更客观一点说，Amit Shekhar 这类项目更偏“知识点驱动”，而不是“结构驱动”。  
+这也是为什么它非常适合入门，但并不适合作为一个可直接延展的工程模板。
 
-比如：
+但问题也恰恰来自这种“示例集合式结构”。一个适合教学的示例项目，不一定适合继续往真实业务工程演进。把它放到今天的 Android 工程视角下再看，原始结构仍然暴露出不少典型问题。
+
+从架构上看，原始版本更接近一种传统的、偏扁平化的 MVVM 示例结构：
+
+- `Activity` 直接和 `ViewModel` 配合
+- `ViewModel` 直接依赖 `ApiHelper`、`DatabaseHelper`
+- 数据获取、异常处理、状态更新集中在表现层
+- 依赖创建通过页面或 `ViewModelFactory` 手动管理
+
+这种结构在教学场景下有它的合理性，因为链路短、容易讲清楚。但它的缺点也很明显：
 
 - `Activity` 或 `ViewModelFactory` 负责组装依赖
 - `ViewModel` 直接调用网络层和数据库层
@@ -22,7 +48,7 @@
 
 这类项目很适合入门，但如果继续往真实业务开发靠，就会很快暴露出结构问题。
 
-所以我这次做的事情，不是否定这个项目原本的教学价值，而是在保留它示例价值的前提下，把这个原本偏传统写法的 Android Kotlin 协程示例，完整地往工程化方向推进了一步。
+所以我这次做的事情，不是否定这个项目原本的教学价值，而是在保留它示例价值的前提下，对它做一次现代化、工程化的重构。
 
 换句话说，这次优化的出发点是：
 
@@ -48,9 +74,83 @@
 
 如果你也正在维护一个“能跑，但不太好继续扩展”的 Android 示例项目，这篇文章的重点不是告诉你某个框架有多高级，而是给出一条足够务实的重构路径。
 
+这次重构的核心目标不是“更规范”，而是降低未来新增功能时的结构成本。
+
 ---
 
-## 一、先说原来的问题：它能运行，但不适合继续长大
+## 一、先把方法论说清楚：这次重构遵守了哪些结构原则
+
+在进入具体代码之前，可以先把这次重构最终落下来的结构原则提炼出来。
+
+这很重要，因为这篇文章不只是想说明“我改了哪些文件”，而是想说明：
+
+> 如果以后再遇到类似的 Android 示例项目，应该按什么原则去重构。
+
+### 1. 依赖方向必须固定
+
+这次重构里，依赖方向被严格收敛成：
+
+`UI -> Domain -> Data`
+
+也就是说：
+
+- `UI` 依赖 `Domain`
+- `Domain` 依赖抽象，不依赖具体数据实现
+- `Data` 负责实现这些抽象
+
+一旦这个方向固定下来，层与层之间的职责就不会继续相互渗透。
+
+### 2. UI 层只做三件事
+
+UI 层在这次重构后，只保留三类职责：
+
+- 订阅状态
+- 触发行为
+- 渲染界面
+
+它不再负责：
+
+- 创建依赖
+- 编排业务
+- 决定数据来自哪里
+- 处理底层异常策略
+
+### 3. Domain 层是稳定边界
+
+`Domain` 层在这里承担的是“结构稳定器”的角色：
+
+- `UseCase` 负责表达业务动作
+- `Repository` 接口负责隔离数据实现
+- `Resource` 负责统一业务结果模型
+
+换句话说，UI 怎么变、数据源怎么变，都不应该直接冲击到 Domain 的边界表达。
+
+### 4. Data 层不是搬运层，而是策略层
+
+这次重构之后，`Data` 层不只是“调接口 + 查数据库”，它还负责：
+
+- 缓存优先级
+- 刷新策略
+- 错误传播策略
+- 连续数据流建模
+
+所以这里的 `RepositoryImpl` 不是简单 DAO/Api 包装器，而是数据策略协调器。
+
+### 5. 状态应该被订阅，而不是被手动推送
+
+最后一个核心原则是：
+
+> UI 不再主动驱动数据，而是订阅已经存在的状态流。
+
+这也是为什么这次重构最终会落到 `Flow -> StateFlow -> repeatOnLifecycle + collect` 这一整条链路上。
+
+如果把这些原则压缩成一句话，就是：
+
+> 这次重构不是在堆技术点，而是在重新定义职责边界、依赖方向和状态流动方式。
+
+---
+
+## 二、原项目为什么能学，但不能直接拿来长大
 
 先说明一点：原项目并不是“写得差”，而是它的定位本来就更偏教学示例，而不是工程化模板。
 
@@ -100,9 +200,11 @@ class ViewModelFactory(
 
 > 代码的问题不在于它不能运行，而在于它无法以低成本继续演进。
 
+换句话说，这次重构真正要解决的，不是“示例代码不够优雅”，而是它还不具备抵抗复杂度增长的能力。
+
 ---
 
-## 二、第一个改造点：先把依赖注入补上
+## 三、第一刀先下在依赖管理：把依赖图从 UI 层收回来
 
 如果依赖关系本身就是分散、手动、硬编码的，那后面的架构优化很容易流于表面。
 
@@ -116,6 +218,17 @@ class ViewModelFactory(
 
 - 对象创建逻辑和业务展示逻辑混在一起
 - 依赖关系散落，扩展和测试成本都高
+
+但如果从架构层面看，更本质的问题其实是：
+
+> 没有 DI 的本质问题不是“代码多”，而是依赖关系被泄露到了 UI 层。
+
+一旦 UI 知道依赖如何构造，它就同时承担了两种职责：
+
+- 展示
+- 组装系统
+
+这才是结构会逐渐失控的根源。
 
 ### 2. 重构后：把依赖集中交给 Koin
 
@@ -178,6 +291,8 @@ class SingleNetworkCallActivity : AppCompatActivity() {
 
 换句话说，依赖注入不是装饰品，它是这次重构真正的起点。
 
+DI 解决的也不只是“怎么创建对象”，而是“谁应该知道依赖关系”。
+
 如果只从工程收益来看，这一步至少解决了三件事：
 
 - 去掉了手动拼装依赖的重复劳动
@@ -186,13 +301,42 @@ class SingleNetworkCallActivity : AppCompatActivity() {
 
 ---
 
-## 三、第二个改造点：让 ViewModel 不再直接碰底层数据源
+## 四、真正的重构从这里开始：按 Clean Architecture 重划边界
+
+既然这次重构的目标是把项目从“教学示例”推进到“更接近真实业务工程”，那只补 DI 还不够，下一步必须解决的是职责边界问题。
+
+这也是为什么我会把这次重构明确落到 `Clean Architecture` 上。
+
+对这个项目来说，Clean Architecture 不是为了追求概念上的完整，而是为了回答一个非常现实的问题：
+
+> 协程代码到底应该写在哪一层，业务逻辑到底应该由谁负责。
+
+如果没有这一层架构约束，代码即使引入了 Koin，也很容易只是把“原本写在页面里的依赖创建”换了个地方放，核心耦合关系并不会真正消失。
+
+在这次改造里，我把职责重新拆成了三层：
+
+- `UI` 层：负责展示和状态消费
+- `Domain` 层：负责业务规则、UseCase、Repository 抽象
+- `Data` 层：负责网络、本地缓存、Repository 实现
+
+对应到依赖方向，就是：
+
+`UI -> Domain -> Data`
+
+这里最核心的变化有两个：
+
+- `ViewModel` 不再直接依赖数据源，而是依赖 `UseCase`
+- `UseCase` 不再关心具体实现，而是依赖 `Repository` 抽象
+
+这样一来，表现层、业务层、数据层各自只关心自己的职责，协程逻辑也终于有了明确归属。
+
+在这个前提下，再看 `ViewModel` 解耦这件事，就不是“多封一层”的技巧问题，而是一次明确的分层重构。
+
+### 1. 重构前：ViewModel 直接依赖 ApiHelper / DatabaseHelper
 
 很多传统 Android 项目里，`ViewModel` 经常会逐渐变成“什么都做一点”的角色。
 
 比如它既要发起协程，又要调用 API，又要访问数据库，还要处理异常、拼装 UI 状态。页面少的时候问题不明显，一旦场景变多，`ViewModel` 就会越来越重。
-
-### 1. 重构前：ViewModel 直接依赖 ApiHelper / DatabaseHelper
 
 这类写法非常常见：
 
@@ -220,7 +364,7 @@ class SingleNetworkCallViewModel(
 
 这其实违背了表现层应有的职责边界。
 
-### 2. 重构后：ViewModel 只依赖 UseCase，并直接暴露 StateFlow
+### 2. 重构后：ViewModel 只依赖 Domain 层的 UseCase
 
 现在的 `SingleNetworkCallViewModel` 只依赖业务用例，而且不再手动维护 `MutableLiveData`，而是直接把 `Flow<Resource<T>>` 转成 `StateFlow<UiState<T>>`：
 
@@ -255,6 +399,15 @@ class GetUsersUseCase(private val userRepository: UserRepository) {
 }
 ```
 
+如果继续往下看，就会发现整个依赖链已经变成了标准的 Clean Architecture 方向：
+
+- `Activity` 订阅 `ViewModel.uiState`
+- `ViewModel` 调用 `UseCase`
+- `UseCase` 依赖 `UserRepository`
+- `UserRepositoryImpl` 再去协调远程和本地数据源
+
+这才是这次重构真正想建立的结构基础。
+
 这一步改造的关键，不只是“多加了一层”。
 
 真正的价值在于：
@@ -267,13 +420,29 @@ class GetUsersUseCase(private val userRepository: UserRepository) {
 
 很多人觉得 `UseCase` 是“看起来更高级”的写法，但如果项目已经进入多个页面、多种请求场景并存的状态，它其实是非常务实的拆分。
 
+更准确地说，`UseCase` 的价值不在于单纯解耦 `ViewModel`，而在于：
+
+> 让“业务策略”成为可以独立演进的稳定边界。
+
+像这个项目里的这些场景：
+
+- 串行请求
+- 并行请求
+- 本地优先 + 远程刷新
+
+它们本质上都是业务策略，而不是单纯的数据访问细节。
+
 这里可以用一句更直接的话概括：
 
 > ViewModel 不应该决定业务怎么做，它应该决定结果怎么展示。
 
+当然，这里也有一个需要克制的地方：并不是所有数据请求都需要独立 `UseCase`。
+
+当 `UseCase` 不承载业务逻辑，只是简单透传 `Repository` 时，它很容易退化成没有意义的中间层。小项目里，这种情况要尽量避免滥建。
+
 ---
 
-## 四、第三个改造点：把异常处理从 UI 层拿下去
+## 五、别再让 ViewModel 到处兜底：把错误处理下沉到 Repository
 
 如果一个项目里的每个 `ViewModel` 都写着自己的 `try-catch`，那通常意味着异常处理还停留在“哪里报错就在哪里兜底”的阶段。
 
@@ -353,7 +522,18 @@ val uiState: StateFlow<UiState<List<ApiUser>>> = getUsersUseCase()
 - `ViewModel` 只负责消费结果并驱动 UI
 
 这里还有一个比旧实现更接近真实业务的变化：  
-`getUsers()` 不再只是“请求一次网络然后返回”，而是先发射本地缓存，再尝试请求远程并刷新缓存。这意味着数据流是连续的，而不是一次性的主动获取。
+`getUsers()` 不再只是“请求一次网络然后返回”，而是先发射本地缓存，再尝试请求远程并刷新缓存。
+
+这意味着 `Repository` 已经不只是“封装数据来源”，而是在承担数据策略协调器的角色。
+
+它至少负责了四件事：
+
+- 决定数据优先级：本地还是远程
+- 决定刷新策略：何时更新缓存
+- 决定错误传播方式：什么时候应该报错，什么时候应该吞掉错误
+- 决定数据流是否连续：是一锤子请求，还是持续状态流
+
+也就是说，这里的 `Repository` 已经接近一个简化版的 `Single Source of Truth` 思路，而不只是一个“帮你调接口的类”。
 
 从“防御式写法”转向“结果驱动写法”，是这次重构里我认为非常关键的一步。
 
@@ -361,7 +541,7 @@ val uiState: StateFlow<UiState<List<ApiUser>>> = getUsersUseCase()
 
 ---
 
-## 五、第四个改造点：把协程场景放进真正合理的层里
+## 六、协程不只是会写就行：关键是写对层
 
 这个项目原本就有很多很适合教学的协程示例，比如：
 
@@ -440,7 +620,7 @@ class GetUsersParallelUseCase(private val userRepository: UserRepository) {
 
 ---
 
-## 六、这次重构之后，项目结构发生了什么变化
+## 七、重构完成后，项目的结构和数据流到底变成了什么样
 
 当前项目已经形成了比较清晰的结构：
 
@@ -480,6 +660,75 @@ app/src/main/java/me/amitshekhar/learn/kotlin/coroutines
 
 这让整个项目从“示例集合”变成了“具备工程边界的示例项目”。
 
+如果用图来表示这次重构后的依赖关系和数据流，大致是这样：
+
+```mermaid
+flowchart LR
+    A["Activity / Fragment"] --> B["ViewModel<br/>StateFlow&lt;UiState&gt;"]
+    B --> C["UseCase"]
+    C --> D["UserRepository"]
+    D --> E["UserRepositoryImpl"]
+    E --> F["LocalDataSource / Room"]
+    E --> G["RemoteDataSource / Retrofit"]
+
+    F -. "cached data" .-> E
+    G -. "remote data" .-> E
+    E -. "Flow&lt;Resource&gt;" .-> C
+    C -. "Flow&lt;Resource&gt;" .-> B
+    B -. "StateFlow&lt;UiState&gt;" .-> A
+```
+
+这个图里有两个重点：
+
+- 依赖方向是 `UI -> Domain -> Data`
+- 数据返回方向是 `Data -> Domain -> UI`，并且是以 `Flow / StateFlow` 形式持续流动
+
+如果把 `Flow` 在这次重构里的角色拆开来看，其实它分别出现在三个不同层面。
+
+### 1. Flow 作为数据流：出现在 Repository
+
+在 `Repository` 层，`Flow` 的作用不是“为了用新技术”，而是为了把数据策略表达清楚。
+
+比如 `getUsers()` 里发生的事情其实是：
+
+- 先读取本地缓存
+- 如果本地有数据，先发射本地结果
+- 再请求远程数据
+- 成功后刷新本地缓存
+- 再发射最新远程结果
+
+这时候 `Flow` 承担的是“连续数据流建模”的角色。
+
+### 2. Flow 作为状态流：出现在 ViewModel
+
+到了 `ViewModel` 层，`Flow<Resource<T>>` 会被映射成 `StateFlow<UiState<T>>`：
+
+- `Resource.Success` -> `UiState.Success`
+- `Resource.Error` -> `UiState.Error`
+- 初始状态 -> `UiState.Loading`
+
+这一层里，`Flow` 不再是“拿数据”，而是在定义 UI 应该消费什么状态。
+
+### 3. Flow 作为生命周期感知消费：出现在 UI
+
+到了 `Activity` / `Fragment` 层，重点又变了。
+
+这里不是“怎么生成 Flow”，而是：
+
+- 在正确的生命周期中开始收集
+- 在页面不可见时自动停止
+- 保证 UI 只消费当前有效状态
+
+也就是 `repeatOnLifecycle + collect` 这一层。
+
+所以更准确地说，在这个项目里：
+
+- `Repository` 用 `Flow` 表达数据
+- `ViewModel` 用 `StateFlow` 表达状态
+- `UI` 用 `collect` 表达消费
+
+这样一拆，读者就不容易把 `Flow` 理解成“只是 ViewModel 里的一个替代 LiveData 的工具”。
+
 如果把重构前后做一个非常直接的对比，大概是这样：
 
 | 维度 | 重构前 | 重构后 |
@@ -491,9 +740,27 @@ app/src/main/java/me/amitshekhar/learn/kotlin/coroutines
 | 异常处理 | 每个页面单独 `try-catch` | `Repository` 统一封装 `Resource` |
 | 工程结构 | 更像示例堆叠 | 更接近真实业务分层 |
 
+这里最底层的变化，其实不是“把 LiveData 换成了 Flow”，而是：
+
+> 从“命令式拉数据”切换成了“声明式订阅状态”。
+
+传统写法通常是：
+
+- UI 主动触发
+- ViewModel 拉数据
+- 再把结果推回 UI
+
+现在变成：
+
+- 数据流持续存在
+- ViewModel 负责定义状态转换
+- UI 只负责在合适的生命周期里订阅状态
+
+也就是说，UI 不再驱动数据，而是消费状态。
+
 ---
 
-## 七、现在这个项目适合怎么学
+## 八、如果今天重新学习这个项目，推荐按这个顺序看
 
 如果你是第一次看这个项目，我建议不要一上来就只看协程 API。
 
@@ -512,7 +779,7 @@ app/src/main/java/me/amitshekhar/learn/kotlin/coroutines
 
 ---
 
-## 八、这个项目里目前包含哪些示例
+## 九、现在这个项目里有哪些示例入口
 
 首页 `MainActivity` 目前提供了这些入口：
 
@@ -530,7 +797,7 @@ app/src/main/java/me/amitshekhar/learn/kotlin/coroutines
 
 ---
 
-## 九、技术栈与运行环境
+## 十、技术栈和运行环境
 
 技术栈：
 
@@ -556,17 +823,17 @@ app/src/main/java/me/amitshekhar/learn/kotlin/coroutines
 
 ---
 
-## 十、最后总结
+## 十一、最后落回一句最重要的话：这次重构到底改变了什么
 
-这次优化对我来说，重点不在于“把代码写得更花哨”，而在于把原本偏传统的协程示例，重构成一个更符合真实 Android 项目开发方式的结构。
+这次重构的本质，不是引入了多少新技术，而是完成了三件更关键的事情：
 
-回头看，这次改造本质上完成了四件事：
+1. 让依赖关系从“隐式分散”变成“显式集中”
+2. 让业务逻辑从“UI 层泄露”回归到“稳定边界（UseCase）”
+3. 让数据流从“一次性请求”升级为“可持续状态流（Flow）”
 
-- 把依赖管理从手动组装升级为 `Koin DI`
-- 把业务逻辑从 `ViewModel` 下沉到 `UseCase`
-- 把数据访问、缓存刷新和异常封装收敛到 `Repository`
-- 把 UI 通信模型从主动获取切换为 `Flow -> StateFlow`
-- 把项目从“协程示例集合”推进为“有清晰边界的工程化示例”
+最终结果不是代码更复杂，而是：
+
+> 结构开始具备抵抗复杂度增长的能力。
 
 如果你也有一个“能跑，但结构开始变重”的 Android 示例项目，这条优化路径是值得参考的。
 
