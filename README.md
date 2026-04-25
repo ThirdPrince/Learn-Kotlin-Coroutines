@@ -1,5 +1,3 @@
-<img src="https://raw.githubusercontent.com/amitshekhariitbhu/Learn-Kotlin-Coroutines/main/assets/learn-kotlin-coroutines.png" alt="Learn Kotlin Coroutines banner" />
-
 # 我是如何把一个传统 Android 协程示例，重构成 Clean Architecture + Koin DI 项目的
 
 很多协程教程项目都有一个共同特点：功能能跑，示例也清楚，但工程结构往往停留在“为了演示而演示”的阶段。
