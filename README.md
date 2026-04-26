@@ -1,3 +1,4 @@
+ <img src="assets/e018f793-227f-4328-8d17-36005f6d2b1a.png" width="100%" />
 # 我是如何把一个传统 Android 协程示例，重构成 Clean Architecture + Koin DI 项目的
 
 `Learn-Kotlin-Coroutines` 原本是 Amit Shekhar 的一个 Android 协程教学项目。Amit Shekhar 本身是一位优秀的 Android 实战性讲师，这个项目在大约四年前的语境下，其实是一个质量不错、很适合入门的示例工程。
